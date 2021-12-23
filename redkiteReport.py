@@ -5,6 +5,21 @@ import json
 import hashlib
 import time
 
+#THIS CODE REMOVES DUPLICATES FROM failed_list_withduplicates AND CREATES A NEW LIST NAMED failed_log
+def removeDuplicateLines(output_file_path, input_file_path):
+    completed_lines_hash = set()
+
+    output_file = open(output_file_path, "w")
+
+    for line in open(input_file_path, "r"):
+        hashValue = hashlib.md5(line.rstrip().encode("utf-8")).hexdigest()
+        if hashValue not in completed_lines_hash:
+            output_file.write(line)
+            completed_lines_hash.add(hashValue)
+    output_file.close()
+
+   
+
 #FUNCTION TO REQUEST AND RETURN TOKEN
 def getToken():
     url = "https://login.microsoftonline.com/5b370688-b179-45c6-8271-628b64c03723/oauth2/token"
@@ -29,8 +44,9 @@ class Workorder:
         self.rk_value = rk_value
         self.gilm_value = gilm_value
         self.statusOfWork = statusOfWork
-#USE AN XLSX EXCEL FILE NAMED DAILYREPORT.XLSX AND CREATE A SHEET, SETNAME TO VARIABLE BELOW           
-sheetName = "23122021"          
+#USE AN XLSX EXCEL FILE NAMED DAILYREPORT.XLSX AND CREATE A SHEET, SETNAME TO VARIABLE BELOW, 
+# BE CAREFUL COPYING FROM A REDKITE EXCEL DOCUMENT, BEST TO PASS IT THROUGH NOTEPADE TO REMOVE ANY FORMATING          
+sheetName = "test"          
 # READ FILE            .
 pd.set_option('precision', 0)   
 df = pd.read_excel('dailyreport.xlsx', sheet_name=sheetName)
@@ -83,8 +99,6 @@ jobs_log = sheetName + '_jobs_log_' + timestr +  '.txt'
 failed_list_withduplicates = sheetName + '_failed_list_dup_' + timestr + '.txt'
 failed_log = sheetName + '_failed_log_' + timestr + '.txt'
 
-#A COUNTER VARIABLE WHICH IS ADDED TO EACH TIME A FAILURE IS IDENTIFIED
-counter = 0
 
 #ITERATES THROUGH EACH LINE IN THE listOfJobs APPENDING FAIL TO EACH LINE WHICH FAILS THE CRITERIA AND CREATES A TEXT FILE
 with open(jobs_log, 'a') as j:
@@ -92,7 +106,6 @@ with open(jobs_log, 'a') as j:
         print("Gilm number" + str(job.gilm_value))
         if float(job.rk_value) < float(job.gilm_value) or job.statusOfWork != 870110000:
             failedList.append(job)
-            counter += 1
             j.write("Job no" + " : " + str(job.jobnumber) + ' : ' + "\tRK : " + str(job.rk_value) + ' : ' +  "\tGil" + ' : ' + str(round(job.gilm_value, 2))  + ' : ' + "\tStatus : " +  str(job.statusOfWork) +  " : FAILED")
             j.write('\n')
         else:
@@ -114,20 +127,5 @@ with open(jobs_log, 'a') as j:
 #THIS CODE REMOVES DUPLICATES FROM failed_list_withduplicates AND CREATES A NEW LIST NAMED failed_log
 output_file_path = failed_log
 input_file_path = failed_list_withduplicates
+removeDuplicateLines(output_file_path, input_file_path)
 
-completed_lines_hash = set()
-
-output_file = open(output_file_path, "w")
-
-for line in open(input_file_path, "r"):
-    hashValue = hashlib.md5(line.rstrip().encode("utf-8")).hexdigest()
-    if hashValue not in completed_lines_hash:
-        output_file.write(line)
-        completed_lines_hash.add(hashValue)
-output_file.close()
-
-num_lines = sum(1 for line in open(failed_log))
-
-with open(failed_log, 'r+') as j:
-    j.write("There are  " + str(num_lines - 3) + " failures in 1000")
-    j.write('\n')
