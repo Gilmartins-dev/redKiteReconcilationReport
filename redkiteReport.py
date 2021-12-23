@@ -5,7 +5,7 @@ import json
 import hashlib
 import time
 
-
+#FUNCTION TO REQUEST AND RETURN TOKEN
 def getToken():
     url = "https://login.microsoftonline.com/5b370688-b179-45c6-8271-628b64c03723/oauth2/token"
     payload='client_id=d5d35f45-e502-4ba6-90a9-8a0e72a5f683&client_secret=7~6z9tW-1nW8f.N~Okes12l4vK4a61U3C5&grant_type=client_credentials&resource=https%3A%2F%2Fgilmartins.crm11.dynamics.com'
@@ -20,8 +20,7 @@ def getToken():
 
     return resToken
 
-
-
+#CALL FUNCTION TO RETURN TOKEN AND STORE IN VARIABLE TOKEN
 token = getToken()
 
 class Workorder:
@@ -30,23 +29,20 @@ class Workorder:
         self.rk_value = rk_value
         self.gilm_value = gilm_value
         self.statusOfWork = statusOfWork
-          
+#USE AN XLSX EXCEL FILE NAMED DAILYREPORT.XLSX AND CREATE A SHEET, SETNAME TO VARIABLE BELOW           
 sheetName = "23122021"          
 # READ FILE            .
 pd.set_option('precision', 0)   
 df = pd.read_excel('dailyreport.xlsx', sheet_name=sheetName)
 
-
-
-
 # READ THE JOBNUMBERS FROM THE FILE
 listOfJobnumbers = df['Job Number']
 
-
+#CREATE EMPTY LISTS
 listOfJobs = []
 failedList = []
 
-#GET TOKEN
+#FUNCTION TO GET GILMARTINS TOTAL JOB VALUE USING THE CLIENT REF SUPPLIED BY REDKITE 
 def getGilmartinsValue(clientRef):
     headers = {
                 'Authorization': "Bearer " + token,
@@ -62,11 +58,10 @@ def getGilmartinsValue(clientRef):
     #print(url)
     a = requests.get(url, headers = headers)
     resJson = a.json()
-    
-    
+       
     return resJson["value"]
     
-
+#ITERATE THROUGH THE READ FILE WHICH WAS CREATED ON LINE 36 CHECK EACH ROW IS PRINTING TO CONSOLE
 for index, row in df.iterrows():
     print("CLIENTREF ", row['Job Number'])
     print("VALUE ", row['Total Value'])
@@ -76,17 +71,22 @@ for index, row in df.iterrows():
     if response != []:
         gilm_estimated = response[0]["msdyn_estimatesubtotalamount"]
         gilm_status = response[0]["gilm_statusofwork"]
+        #A WORKORDER CLASS IS CREATED AND ALL ',' AND '£' ARE REMOVED SO ONLY DIGITS REMAIN OTHERWISE CHANGING STRING TO INTEGER WILL FAIL LATER
         workorder = Workorder(str(row['Job Number']), row['Total Value'].replace('£', '').replace(',',""),gilm_estimated,gilm_status)
         listOfJobs.append(workorder)
 
-
-
+#CREATE TIME STAMP AND STORE IN VARIABLE
 timestr = time.strftime("%d%m%y-%H%M")
+#CREATE JOBS TITLES VARIABLE WITH WILL HOLD THE SHEET NAME, '_jobs_lOG_, TIME STRING AND TXT SUFFIX
+#THREE LOGS ARE CREATED A FULL LOG OF ALL JOB NUMBERS WITH A 'FAIL' APPENDED TO EACH LINE THAT FAILS, A LIST OF FAILURES AND A LIST OF FAILURES WIITH DUPLICATES REMOVED
 jobs_log = sheetName + '_jobs_log_' + timestr +  '.txt'
 failed_list_withduplicates = sheetName + '_failed_list_dup_' + timestr + '.txt'
 failed_log = sheetName + '_failed_log_' + timestr + '.txt'
 
+#A COUNTER VARIABLE WHICH IS ADDED TO EACH TIME A FAILURE IS IDENTIFIED
 counter = 0
+
+#ITERATES THROUGH EACH LINE IN THE listOfJobs APPENDING FAIL TO EACH LINE WHICH FAILS THE CRITERIA AND CREATES A TEXT FILE
 with open(jobs_log, 'a') as j:
     for job in listOfJobs:
         print("Gilm number" + str(job.gilm_value))
@@ -98,6 +98,7 @@ with open(jobs_log, 'a') as j:
         else:
             j.write("Job no" + " : " + str(job.jobnumber) + ' : ' + "\tRK : " + str(job.rk_value) + ' : ' +  "\tGil" + ' : ' + str(round(job.gilm_value, 2))  + ' : ' + "\tStatus : " +  str(job.statusOfWork))
             j.write('\n')
+    #CREATE A LOG OF ALL FAILED JOBS WHICH JUST CONTAINS THE JOB NUMBER
     with open(failed_list_withduplicates, 'a') as f:
             f.write('Hi Tom,')
             f.write('\n')
@@ -109,8 +110,8 @@ with open(jobs_log, 'a') as j:
                 f.write(str(failed.jobnumber))
                 f.write('\n')
             
-#remove duplicates
 
+#THIS CODE REMOVES DUPLICATES FROM failed_list_withduplicates AND CREATES A NEW LIST NAMED failed_log
 output_file_path = failed_log
 input_file_path = failed_list_withduplicates
 
