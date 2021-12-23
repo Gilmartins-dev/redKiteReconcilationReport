@@ -39,14 +39,14 @@ def getToken():
 token = getToken()
 
 class Workorder:
-    def __init__(self,jobnumber,rk_value,gilm_value,statusOfWork):
+    def __init__(self,jobnumber,rk_value,gilm_value,status):
         self.jobnumber = jobnumber
         self.rk_value = rk_value
         self.gilm_value = gilm_value
-        self.statusOfWork = statusOfWork
+        self.status = status
 #USE AN XLSX EXCEL FILE NAMED DAILYREPORT.XLSX AND CREATE A SHEET, SETNAME TO VARIABLE BELOW, 
 # BE CAREFUL COPYING FROM A REDKITE EXCEL DOCUMENT, BEST TO PASS IT THROUGH NOTEPADE TO REMOVE ANY FORMATING          
-sheetName = "test"          
+sheetName = "2021-12-20"          
 # READ FILE            .
 pd.set_option('precision', 0)   
 df = pd.read_excel('dailyreport.xlsx', sheet_name=sheetName)
@@ -57,6 +57,7 @@ listOfJobnumbers = df['Job Number']
 #CREATE EMPTY LISTS
 listOfJobs = []
 failedList = []
+invoicedGuid = "18d41587-a708-ea11-a811-000d3a0bad7c"
 
 #FUNCTION TO GET GILMARTINS TOTAL JOB VALUE USING THE CLIENT REF SUPPLIED BY REDKITE 
 def getGilmartinsValue(clientRef):
@@ -70,7 +71,7 @@ def getGilmartinsValue(clientRef):
             }
    
     
-    url ="https://gilmartins.crm11.dynamics.com/api/data/v9.2/msdyn_workorders?$select=msdyn_estimatesubtotalamount,gilm_statusofwork&$filter=(gilm_clientref eq '" + str(clientRef) + "')"
+    url ="https://gilmartins.crm11.dynamics.com/api/data/v9.2/msdyn_workorders?$select=msdyn_estimatesubtotalamount,_msdyn_substatus_value&$filter=(gilm_clientref eq '" + str(clientRef) + "')"
     #print(url)
     a = requests.get(url, headers = headers)
     resJson = a.json()
@@ -86,7 +87,8 @@ for index, row in df.iterrows():
     #print(response)
     if response != []:
         gilm_estimated = response[0]["msdyn_estimatesubtotalamount"]
-        gilm_status = response[0]["gilm_statusofwork"]
+        print(response[0])
+        gilm_status = response[0]["_msdyn_substatus_value"]
         #A WORKORDER CLASS IS CREATED AND ALL ',' AND '£' ARE REMOVED SO ONLY DIGITS REMAIN OTHERWISE CHANGING STRING TO INTEGER WILL FAIL LATER
         workorder = Workorder(str(row['Job Number']), row['Total Value'].replace('£', '').replace(',',""),gilm_estimated,gilm_status)
         listOfJobs.append(workorder)
@@ -104,12 +106,13 @@ failed_log = sheetName + '_failed_log_' + timestr + '.txt'
 with open(jobs_log, 'a') as j:
     for job in listOfJobs:
         print("Gilm number" + str(job.gilm_value))
-        if float(job.rk_value) < float(job.gilm_value) or job.statusOfWork != 870110000:
+        #0.1 IS ADDED TO THE rk_value TO AVOID ERRORS DUE TO ROUNDING
+        if float(job.rk_value) + 0.1 < float(job.gilm_value) or job.status != "18d41587-a708-ea11-a811-000d3a0bad7c":
             failedList.append(job)
-            j.write("Job no" + " : " + str(job.jobnumber) + ' : ' + "\tRK : " + str(job.rk_value) + ' : ' +  "\tGil" + ' : ' + str(round(job.gilm_value, 2))  + ' : ' + "\tStatus : " +  str(job.statusOfWork) +  " : FAILED")
+            j.write("Job no" + " : " + str(job.jobnumber) + ' : ' + "\tRK : " + str(job.rk_value) + ' : ' +  "\tGil" + ' : ' + str(round(job.gilm_value, 2))  + ' : ' + "\tStatus : " +  str(job.status) +  " : FAILED")
             j.write('\n')
         else:
-            j.write("Job no" + " : " + str(job.jobnumber) + ' : ' + "\tRK : " + str(job.rk_value) + ' : ' +  "\tGil" + ' : ' + str(round(job.gilm_value, 2))  + ' : ' + "\tStatus : " +  str(job.statusOfWork))
+            j.write("Job no" + " : " + str(job.jobnumber) + ' : ' + "\tRK : " + str(job.rk_value) + ' : ' +  "\tGil" + ' : ' + str(round(job.gilm_value, 2))  + ' : ' + "\tStatus : " +  str(job.status))
             j.write('\n')
     #CREATE A LOG OF ALL FAILED JOBS WHICH JUST CONTAINS THE JOB NUMBER
     with open(failed_list_withduplicates, 'a') as f:
